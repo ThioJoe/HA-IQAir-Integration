@@ -14,8 +14,6 @@ from .coordinator import IQAirDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-SPEED_COUNT = 6  # There are 6 speed levels
-
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -87,7 +85,9 @@ class IQAirFan(FanEntity):
     @property
     def speed_count(self) -> int:
         """Return the number of speeds the fan supports."""
-        return SPEED_COUNT
+        if self.coordinator.data:
+            return self.coordinator.data.get("remote", {}).get("maxSpeedLevel", 1)
+        return 1
 
     async def async_turn_on(
         self,
@@ -115,8 +115,8 @@ class IQAirFan(FanEntity):
             await self.async_turn_off()
             return
 
-        speed_level = math.ceil(percentage / 100 * SPEED_COUNT)
-        speed_level = max(1, min(SPEED_COUNT, speed_level))
+        speed_level = math.ceil(percentage / 100 * self.speed_count)
+        speed_level = max(1, min(self.speed_count, speed_level))
 
         update_data = await self._api.set_fan_speed(
             speed_level, context="fan.set_percentage"
