@@ -21,6 +21,13 @@ NOTES:
 
 ## Installation
 
+### HACS Custom Repository Install (Recommended - To know about updates)
+
+1. Within the HACS page, click the menu at the top right > then click "Custom Repositories".
+2. Within the "Repository Field" enter `ThioJoe/HA-IQAir-Integration` . For the "Type" field select "Integration"
+3. Search / filter for the one called "IQAir Cloud Integration" and click it. Then install by clicking the "Download" button.
+4. Reboot Home Assistant. For setup, see the sections below titled "Configuration" and "Acquiring the Tokens".
+
 ### Manual Installation
 
 1.  Copy the `iqair_cloud` folder from this repository into your Home Assistant `custom_components` directory.
