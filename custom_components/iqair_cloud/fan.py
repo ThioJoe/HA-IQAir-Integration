@@ -34,6 +34,7 @@ class IQAirFan(FanEntity):
     """Representation of an IQAir Cloud fan."""
 
     _attr_has_entity_name = True
+    _attr_name = None
     _attr_should_poll = False
     _attr_supported_features = (
         FanEntityFeature.SET_SPEED | FanEntityFeature.TURN_ON | FanEntityFeature.TURN_OFF
