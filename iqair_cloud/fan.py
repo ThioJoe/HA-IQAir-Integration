@@ -57,6 +57,9 @@ class IQAirFan(FanEntity):
             "manufacturer": "IQAir",
             "model": self.coordinator.data.get("modelLabel"),
         }
+        self._is_percentage_control = self.coordinator.data.get("featureSet", {}).get(
+            "isFanSpeedControlInPercent", False
+        )
 
     def _update_state_from_response(self, update_data: dict[str, Any]):
         """Update coordinator data from a command response."""
@@ -83,8 +86,17 @@ class IQAirFan(FanEntity):
         return self.coordinator.data.get("remote", {}).get("speedPercent")
 
     @property
+    def percentage_step(self) -> float:
+        """Return the step size for percentage."""
+        if self._is_percentage_control:
+            return 1.0
+        return super().percentage_step
+
+    @property
     def speed_count(self) -> int:
         """Return the number of speeds the fan supports."""
+        if self._is_percentage_control:
+            return 100
         if self.coordinator.data:
             return self.coordinator.data.get("remote", {}).get("maxSpeedLevel", 1)
         return 1
@@ -115,26 +127,33 @@ class IQAirFan(FanEntity):
             await self.async_turn_off()
             return
 
-        speed_level = math.ceil(percentage / 100 * self.speed_count)
-        speed_level = max(1, min(self.speed_count, speed_level))
+        update_data = None
+        if self._is_percentage_control:
+            update_data = await self._api.set_fan_speed_percent(
+                percentage, context="fan.set_percentage"
+            )
+        else:
+            speed_level = math.ceil(percentage / 100 * self.speed_count)
+            speed_level = max(1, min(self.speed_count, speed_level))
+            update_data = await self._api.set_fan_speed(
+                speed_level, context="fan.set_percentage"
+            )
 
-        update_data = await self._api.set_fan_speed(
-            speed_level, context="fan.set_percentage"
-        )
         if update_data is not None:
-            # We got the level, now map it back to the specific percentage
-            speed_level_from_api = update_data.get("speedLevel")
-            if speed_level_from_api and self.coordinator.data:
-                man_speed_table = self.coordinator.data.get("remote", {}).get(
-                    "manSpeedTable", []
-                )
-                if (
-                    isinstance(man_speed_table, list)
-                    and 0 < speed_level_from_api <= len(man_speed_table)
-                ):
-                    update_data["speedPercent"] = man_speed_table[
-                        speed_level_from_api - 1
-                    ]
+            # If not using percentage control, map the level back to a percentage
+            if not self._is_percentage_control:
+                speed_level_from_api = update_data.get("speedLevel")
+                if speed_level_from_api and self.coordinator.data:
+                    man_speed_table = self.coordinator.data.get("remote", {}).get(
+                        "manSpeedTable", []
+                    )
+                    if (
+                        isinstance(man_speed_table, list)
+                        and 0 < speed_level_from_api <= len(man_speed_table)
+                    ):
+                        update_data["speedPercent"] = man_speed_table[
+                            speed_level_from_api - 1
+                        ]
 
             self._update_state_from_response(update_data)
 

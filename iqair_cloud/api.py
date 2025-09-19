@@ -20,6 +20,7 @@ from .const import (
     ENDPOINT_LOCKS,
     FIELD_POWER,
     FIELD_FAN_SPEED,
+    FIELD_FAN_SPEED_PERCENT,
     FIELD_LIGHT_INDICATOR,
     FIELD_LIGHT_LEVEL,
     FIELD_AUTO_MODE,
@@ -196,6 +197,16 @@ class IQAirApiClient:
             _LOGGER.error("Invalid fan speed level: %s", speed_level)
             return None
         payload = self._build_payload(FIELD_FAN_SPEED, speed_level)
+        return await self._send_command(ENDPOINT_FAN_SPEED, payload, context=context)
+
+    async def set_fan_speed_percent(
+        self, percentage: int, context: str | None = None
+    ) -> dict[str, Any] | None:
+        """Set the fan speed of the device by percentage."""
+        if not 0 <= percentage <= 100:
+            _LOGGER.error("Invalid fan speed percentage: %s", percentage)
+            return None
+        payload = self._build_payload(FIELD_FAN_SPEED_PERCENT, percentage)
         return await self._send_command(ENDPOINT_FAN_SPEED, payload, context=context)
 
     async def set_light_indicator(self, is_on: bool) -> dict[str, Any] | None:
