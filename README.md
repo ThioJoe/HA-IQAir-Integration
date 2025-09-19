@@ -3,9 +3,10 @@
 A Home Assistant integration for controlling IQAir air purifiers via the IQAir Cloud API.
 
 NOTES: 
-- I made this using my "GC Multigas" device as reference, it might not support all features of other devices. Post an issue thread if you run into issues.
+- This requires a device that can connect to WiFi and supports the IQAir Cloud API. I have not figured out a way to control it purely locally.
+- I made this using my "GC Multigas XE" device as reference, it might not support all features of other devices. Post an issue thread if you run into issues.
 - This uses undocumented Cloud APIs so might not work perfectly forever if something changes on the back end.
-- I dont' know how long the auth tokens last but I haven't had them expire yet. They might stop working if you actually click logout in the dashboard.
+- I don't know how long the auth tokens last but I haven't had them expire yet. They might stop working if you actually click logout in the dashboard.
 
 ## Features
 
@@ -35,11 +36,10 @@ NOTES:
     -   **Login Token**: Your IQAir `x-login-token`.
     -   **User ID**: Your IQAir User ID.
 5.  The integration will discover your devices. Select the device you wish to add.
-6.  The integration will be set up and your device entities will be available in Home Assistant.
 
 ## Acquiring the Tokens
 
-### Prepare: Opening the Dev Tools
+### Prepare: Opening the Chrome Dev Tools
 1. First log into the IQAir Dashboard with your account to which your device is registered: [dashboard.iqair.com/](https://dashboard.iqair.com/)
 2. Press F12 in your browser to open the dev tools and go to the Network tab at the top. Click refresh if necessary to view the network requests.
 3. Follow the steps below for how to find each item using the dev panel.
@@ -65,3 +65,14 @@ NOTES:
     - The `xxxxxxxxx` placeholder above is where your **User ID** will be, copy that part between the slashes.
 4. In that same panel, scroll further down, and within the "Request Headers" section look for `X-Login-Token` (it may be at the very bottom)
     - Copy that value, that is your **Login Token**.
+  
+
+## Example Screenshot
+
+<p align="center"><img width="766" height="419" alt="image" src="https://github.com/user-attachments/assets/986c909f-6d27-4b31-ae4f-b6d126040316" /></p>
+
+# Extras
+
+## Tools
+
+- `gRPC Decode.html`: The cloud API sends and receives GRPC requests encoded as base64, so this browser based tool lets you paste in the payload and see the contents. Useful for API testing and debugging.
