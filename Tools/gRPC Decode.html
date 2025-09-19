@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>gRPC-Web Base64 Decoder</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: auto; background-color: #1e1e1e; color: #e0e0e0; }
+        h1 { color: #ffffff; }
+        p { color: #b0b0b0; }
+        textarea { width: 100%; min-height: 100px; box-sizing: border-box; padding: 10px; border: 1px solid #555; border-radius: 4px; font-family: monospace; background-color: #2a2a2a; color: #e0e0e0; }
+        button { background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-top: 10px; }
+        button:hover { background-color: #0056b3; }
+        pre { background-color: #252526; padding: 15px; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word; font-family: monospace; }
+        code { font-size: 14px; }
+        .error { color: #f48771; }
+    </style>
+</head>
+<body>
+
+    <h1>gRPC-Web Base64 Decoder</h1>
+    <p>
+        Paste a gRPC-Web Base64 encoded string below. The tool will decode it by reading the 5-byte header. <strong>It now supports concatenated strings from streaming responses.</strong>
+    </p>
+
+    <textarea id="base64Input" placeholder="Paste your gRPC-Web Base64 string here..."></textarea>
+    <button onclick="decodeGrpcWeb()">Decode</button>
+
+    <h2>Result</h2>
+    <pre><code id="output"></code></pre>
+
+    <script>
+        function decodeGrpcWeb() {
+            const input = document.getElementById('base64Input').value.trim();
+            const outputEl = document.getElementById('output');
+            
+            // Clear previous results
+            outputEl.textContent = '';
+            outputEl.className = '';
+
+            if (!input) {
+                outputEl.textContent = 'Please paste a Base64 string into the text area.';
+                return;
+            }
+
+            // gRPC-Web streaming responses can concatenate multiple Base64 strings.
+            // A valid Base64 string only has padding ('=') at the very end.
+            // We can split the combined string by finding padding characters that are not at the end.
+            const delimitedInput = input.replace(/(=+)([A-Za-z0-9+/])/g, '$1\n$2');
+            const base64Frames = delimitedInput.split('\n').filter(s => s.length > 0);
+
+            if (base64Frames.length === 0 && input.length > 0) {
+                 base64Frames.push(input); // Handle single, non-padded frame
+            }
+            
+            let finalOutput = '';
+            let hasError = false;
+
+            base64Frames.forEach((frame, index) => {
+                if (base64Frames.length > 1) {
+                     finalOutput += `================== FRAME ${index + 1} ==================\n`;
+                }
+
+                try {
+                    const binaryString = atob(frame);
+                    const bytes = new Uint8Array(binaryString.length);
+                    for (let i = 0; i < binaryString.length; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+
+                    if (bytes.length < 5) {
+                        throw new Error(`Invalid gRPC-Web frame. Expected at least 5 bytes for the header, but got ${bytes.length}.`);
+                    }
+
+                    const frameType = bytes[0];
+                    const dataView = new DataView(bytes.buffer);
+                    const length = dataView.getUint32(1, false); // false for big-endian (network byte order)
+
+                    let frameTypeText = `Unknown (0x${frameType.toString(16)})`;
+                    if (frameType === 0x00) frameTypeText = "DATA Frame (0x00)";
+                    if (frameType === 0x80) frameTypeText = "TRAILERS Frame (0x80)";
+
+                    const payloadBytes = bytes.slice(5);
+                    const payloadString = new TextDecoder().decode(payloadBytes);
+                    const payloadHex = Array.from(payloadBytes).map(b => b.toString(16).padStart(2, '0')).join(' ');
+
+                    let lengthWarning = '';
+                    if (payloadBytes.length !== length) {
+                         lengthWarning = `\n[WARNING: Header length (${length}) does not match actual payload length (${payloadBytes.length}).]`;
+                    }
+
+                    finalOutput += `Raw Base64:\n${frame}\n\n`;
+                    finalOutput += `----------- PARSED FRAME -----------\n`;
+                    finalOutput += `Frame Type: ${frameTypeText}\n`;
+                    finalOutput += `Message Length: ${length} bytes\n`;
+                    finalOutput += `\n----------- DECODED PAYLOAD -----------\n`;
+                    finalOutput += `${payloadString}`;
+                    finalOutput += `\n\n----------- PAYLOAD AS HEX -----------\n`;
+                    finalOutput += `${payloadHex}`;
+                    finalOutput += `${lengthWarning}\n\n`;
+
+                } catch (e) {
+                    finalOutput += `Raw Base64:\n${frame}\n\n`;
+                    finalOutput += `DECODING FAILED:\n\n${e.message}\n\n`;
+                    hasError = true;
+                }
+            });
+
+            if (hasError) {
+                outputEl.className = 'error';
+            }
+
+            outputEl.textContent = finalOutput;
+        }
+    </script>
+
+</body>
+</html>
+
