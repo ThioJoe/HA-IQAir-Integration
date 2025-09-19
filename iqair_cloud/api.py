@@ -101,7 +101,7 @@ class IQAirApiClient:
             raise ValueError("Serial number is not set")
 
         # The payload uses the serial number without the "UI2_" prefix
-        sn_part = self._serial_number.replace("UI2_", "").encode("utf-8")
+        sn_part = self._serial_number.replace("UI2_", "").lower().encode("utf-8")
         payload_bytes = bytearray([0x0A, len(sn_part)]) + sn_part
 
         if value is not None:

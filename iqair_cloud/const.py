@@ -42,7 +42,7 @@ ENDPOINT_LOCKS: Final = "/SetDefaultLocks"
 # --- gRPC Payload Fields ---
 FIELD_POWER: Final = 0x10
 FIELD_FAN_SPEED: Final = 0x18
-FIELD_FAN_SPEED_PERCENT: Final = 0x1A  # Assumed field for percentage control
+FIELD_FAN_SPEED_PERCENT: Final = 0x1A  # Assumed field for percentage control. Probably need to change this but would need a device to see what it is.
 FIELD_LIGHT_INDICATOR: Final = 0x10
 FIELD_LIGHT_LEVEL: Final = 0x10
 FIELD_AUTO_MODE: Final = 0x10
