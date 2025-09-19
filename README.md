@@ -2,6 +2,11 @@
 
 A Home Assistant integration for controlling IQAir air purifiers via the IQAir Cloud API.
 
+NOTES: 
+- I made this using my "GC Multigas" device as reference, it might not support all features of other devices. Post an issue thread if you run into issues.
+- This uses undocumented Cloud APIs so might not work perfectly forever if something changes on the back end.
+- I dont' know how long the auth tokens last but I haven't had them expire yet. They might stop working if you actually click logout in the dashboard.
+
 ## Features
 
 - **Fan Control**: Turn the device on/off and set the fan speed.
