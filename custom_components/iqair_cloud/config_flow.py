@@ -247,7 +247,7 @@ class IQAirOptionsFlowHandler(config_entries.OptionsFlow):
     ) -> FlowResult:
         """Manage the options."""
         if user_input is not None:
-            self.hass.config_entries.async_start_reauth(self.config_entry.entry_id)
+            self.config_entry.async_start_reauth(self.hass)
             return self.async_create_entry(title="", data={})
 
         return self.async_show_form(
