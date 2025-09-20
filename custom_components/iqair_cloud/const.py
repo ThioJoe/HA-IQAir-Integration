@@ -6,9 +6,11 @@ DOMAIN: Final = "iqair_cloud"
 SCAN_INTERVAL = timedelta(seconds=30)
 
 # --- Configuration Keys ---
-CONF_AUTH_TOKEN: Final = "auth_token"
+CONF_EMAIL: Final = "email"
+CONF_PASSWORD: Final = "password"
 CONF_LOGIN_TOKEN: Final = "login_token"
 CONF_USER_ID: Final = "user_id"
+CONF_AUTH_TOKEN: Final = "auth_token"
 CONF_DEVICE_ID: Final = "device_id"
 CONF_SERIAL_NUMBER: Final = "serial_number"
 
@@ -21,6 +23,8 @@ GRPC_API_HEADERS: Final = {
 }
 
 # --- Web API Details ---
+DASHBOARD_URL: Final = "https://dashboard.iqair.com/"
+WEB_API_SIGNIN_URL: Final = "https://website-api.airvisual.com/v1/auth/signin/by/email"
 WEB_API_URL: Final = "https://website-api.airvisual.com/v1/users/{user_id}/devices"
 WEB_API_PARAMS: Final = {
     "page": "1",

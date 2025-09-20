@@ -6,50 +6,35 @@ import httpx
 import voluptuous as vol
 
 from homeassistant import config_entries
-from homeassistant.const import CONF_TOKEN
+from homeassistant.const import CONF_PASSWORD
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.exceptions import HomeAssistantError
 
 from .const import (
     DOMAIN,
-    CONF_AUTH_TOKEN,
+    CONF_EMAIL,
     CONF_LOGIN_TOKEN,
     CONF_USER_ID,
+    CONF_AUTH_TOKEN,
     CONF_DEVICE_ID,
     CONF_SERIAL_NUMBER,
-    GRPC_API_HEADERS,
 )
-from .api import IQAirApiClient
+from .api import IQAirApiClient, async_signin, async_get_cloud_api_auth_token
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def _create_validation_clients(
-    data: dict[str, Any]
-) -> tuple[httpx.AsyncClient, httpx.AsyncClient]:
-    """Create temporary httpx clients for validation in a thread-safe way."""
-    command_client = httpx.AsyncClient(
-        http2=True,
-        headers={**GRPC_API_HEADERS, "Authorization": f"Bearer {data[CONF_AUTH_TOKEN]}"},
-    )
-    state_client = httpx.AsyncClient(headers={"x-login-token": data[CONF_LOGIN_TOKEN]})
-    return command_client, state_client
-
-
-async def validate_input(
-    hass: HomeAssistant, data: dict[str, Any]
+async def validate_connection(
+    hass: HomeAssistant, login_token: str, user_id: str
 ) -> list[dict[str, Any]]:
     """Validate the user input allows us to connect."""
-    command_client, state_client = await hass.async_add_executor_job(
-        _create_validation_clients, data
-    )
-
-    # We don't have the serial number here, so we pass None
+    state_client = httpx.AsyncClient(headers={"x-login-token": login_token})
     api_client = IQAirApiClient(
-        command_client=command_client,
+        command_client=None,  # Not needed for validation
         state_client=state_client,
-        user_id=data[CONF_USER_ID],
+        user_id=user_id,
         serial_number=None,
     )
 
@@ -62,7 +47,6 @@ async def validate_input(
     except httpx.RequestError as exc:
         raise CannotConnect from exc
     finally:
-        await command_client.aclose()
         await state_client.aclose()
 
     if not devices:
@@ -81,12 +65,80 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Handle the initial step."""
+        """Handle the initial step to choose auth method."""
+        return self.async_show_menu(
+            step_id="user",
+            menu_options=["credentials", "tokens"],
+        )
+
+    async def async_step_credentials(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle the email and password step."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            session = async_get_clientsession(self.hass)
+            signin_data = await async_signin(
+                session, user_input[CONF_EMAIL], user_input[CONF_PASSWORD]
+            )
+
+            if signin_data:
+                self._user_input[CONF_LOGIN_TOKEN] = signin_data["loginToken"]
+                self._user_input[CONF_USER_ID] = signin_data["id"]
+
+                auth_token = await async_get_cloud_api_auth_token(session)
+                if not auth_token:
+                    errors["base"] = "cannot_connect"
+                    return self.async_show_form(
+                        step_id="credentials",
+                        data_schema=vol.Schema(
+                            {
+                                vol.Required(CONF_EMAIL): str,
+                                vol.Required(CONF_PASSWORD): str,
+                            }
+                        ),
+                        errors=errors,
+                    )
+                self._user_input[CONF_AUTH_TOKEN] = auth_token
+
+                try:
+                    self._devices = await validate_connection(
+                        self.hass,
+                        self._user_input[CONF_LOGIN_TOKEN],
+                        self._user_input[CONF_USER_ID],
+                    )
+                    return await self.async_step_select_device()
+                except CannotConnect:
+                    errors["base"] = "cannot_connect"
+                except InvalidAuth:
+                    errors["base"] = "invalid_auth"
+                except NoDevicesFound:
+                    errors["base"] = "no_devices"
+            else:
+                errors["base"] = "invalid_auth"
+
+        return self.async_show_form(
+            step_id="credentials",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_EMAIL): str,
+                    vol.Required(CONF_PASSWORD): str,
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_tokens(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle the manual token entry step."""
         errors: dict[str, str] = {}
         if user_input is not None:
             self._user_input = user_input
             try:
-                self._devices = await validate_input(self.hass, user_input)
+                self._devices = await validate_connection(
+                    self.hass, user_input[CONF_LOGIN_TOKEN], user_input[CONF_USER_ID]
+                )
                 return await self.async_step_select_device()
             except CannotConnect:
                 errors["base"] = "cannot_connect"
@@ -99,12 +151,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "unknown"
 
         return self.async_show_form(
-            step_id="user",
+            step_id="tokens",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_AUTH_TOKEN): str,
                     vol.Required(CONF_LOGIN_TOKEN): str,
                     vol.Required(CONF_USER_ID): str,
+                    vol.Required(CONF_AUTH_TOKEN): str,
                 }
             ),
             errors=errors,

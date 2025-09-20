@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
+import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
@@ -12,13 +13,15 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import IQAirApiClient
 from .const import (
     DOMAIN,
-    CONF_AUTH_TOKEN,
     CONF_LOGIN_TOKEN,
     CONF_USER_ID,
+    CONF_AUTH_TOKEN,
     CONF_SERIAL_NUMBER,
     GRPC_API_HEADERS,
 )
 from .coordinator import IQAirDataUpdateCoordinator
+
+_LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [
     Platform.FAN,
@@ -30,9 +33,9 @@ PLATFORMS: list[Platform] = [
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up IQAir Cloud from a config entry."""
     hass.data.setdefault(DOMAIN, {})
-    auth_token = entry.data[CONF_AUTH_TOKEN]
     login_token = entry.data[CONF_LOGIN_TOKEN]
     user_id = entry.data[CONF_USER_ID]
+    auth_token = entry.data[CONF_AUTH_TOKEN]
     serial_number = entry.data[CONF_SERIAL_NUMBER]
 
     def _create_clients() -> tuple[httpx.AsyncClient, httpx.AsyncClient]:
