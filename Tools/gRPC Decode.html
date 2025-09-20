@@ -4,115 +4,213 @@
     <meta charset="UTF-8">
     <title>gRPC-Web Base64 Decoder</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: auto; background-color: #1e1e1e; color: #e0e0e0; }
-        h1 { color: #ffffff; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 1200px; margin: auto; background-color: #1e1e1e; color: #e0e0e0; }
+        h1, h2 { color: #ffffff; }
         p { color: #b0b0b0; }
         textarea { width: 100%; min-height: 100px; box-sizing: border-box; padding: 10px; border: 1px solid #555; border-radius: 4px; font-family: monospace; background-color: #2a2a2a; color: #e0e0e0; }
-        button { background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-top: 10px; }
-        button:hover { background-color: #0056b3; }
-        pre { background-color: #252526; padding: 15px; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word; font-family: monospace; }
-        code { font-size: 14px; }
-        .error { color: #f48771; }
+        .decode-button { background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-top: 10px; }
+        .decode-button:hover { background-color: #0056b3; }
+        .error { color: #f48771; border-color: #f48771 !important; }
+        
+        /* --- Results Area Styling --- */
+        .results-header { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; margin-bottom: 10px; }
+        .results-header h2 { margin: 0; }
+        .top-right-buttons { display: flex; gap: 5px; }
+        .output-action-btn { background-color: #555; color: #e0e0e0; border: 1px solid #777; padding: 5px 10px; font-size: 12px; cursor: pointer; border-radius: 4px; opacity: 0.7; transition: opacity 0.2s, background-color 0.2s; }
+        .output-action-btn:hover { opacity: 1; background-color: #666; }
+        .output-action-btn:active { background-color: #007bff; }
+        
+        /* --- Rich Frame Styling --- */
+        #output-display { font-family: monospace; }
+        .frame { background-color: #252526; border: 1px solid #444; border-radius: 6px; margin-bottom: 35px; overflow: hidden; }
+        .frame-header { background-color: #333; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; }
+        .frame-number { font-weight: bold; font-size: 1.1em; color: #00aaff; }
+        .frame-metadata { font-size: 0.8em; color: #aaa; }
+        
+        /* --- Side-by-Side Payload Styling --- */
+        .frame-body { padding: 15px; }
+        .side-by-side-payloads { display: flex; gap: 15px; }
+        .payload-column {
+            flex: 1;
+            min-width: 0;
+            display: flex; /* Make the column a vertical flex container */
+            flex-direction: column;
+        }
+        .payload-title {
+            font-weight: bold;
+            color: #ccc;
+            margin-bottom: 5px;
+            flex-shrink: 0; /* Prevent title from shrinking */
+        }
+        .payload-content, .payload-hex-content {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            padding: 10px;
+            background-color: #1e1e1e;
+            border-radius: 4px;
+            font-size: 14px;
+            flex-grow: 1; /* Allow the content box to fill the available space */
+        }
     </style>
 </head>
 <body>
 
     <h1>gRPC-Web Base64 Decoder</h1>
     <p>
-        Paste a gRPC-Web Base64 encoded string below. The tool will decode it by reading the 5-byte header. <strong>It now supports concatenated strings from streaming responses.</strong>
+        Paste a gRPC-Web Base64 encoded string below. The tool will decode it and display it in a structured format.
     </p>
 
     <textarea id="base64Input" placeholder="Paste your gRPC-Web Base64 string here..."></textarea>
-    <button onclick="decodeGrpcWeb()">Decode</button>
+    <button class="decode-button" onclick="decodeGrpcWeb()">Decode</button>
 
-    <h2>Result</h2>
-    <pre><code id="output"></code></pre>
+    <div id="resultsContainer" style="display: none;">
+        <div class="results-header">
+            <h2>Result</h2>
+            <div class="top-right-buttons">
+                <button class="output-action-btn" onclick="saveOutput()">Save</button>
+                <button class="output-action-btn" id="copyButton" onclick="copyOutput()">Copy</button>
+            </div>
+        </div>
+        <div id="output-display"></div>
+        <textarea id="outputTextForExport" style="display: none;"></textarea>
+    </div>
 
     <script>
+        function copyOutput() {
+            const textToCopy = document.getElementById('outputTextForExport').value;
+            const copyButton = document.getElementById('copyButton');
+            if (!textToCopy) return;
+
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                const originalText = copyButton.textContent;
+                copyButton.textContent = 'Copied!';
+                setTimeout(() => { copyButton.textContent = originalText; }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+                alert('Could not copy text to clipboard.');
+            });
+        }
+
+        function saveOutput() {
+            const textToSave = document.getElementById('outputTextForExport').value;
+            if (!textToSave) { alert('Nothing to save.'); return; }
+
+            const blob = new Blob([textToSave], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'grpc-decoded-output.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
         function decodeGrpcWeb() {
             const input = document.getElementById('base64Input').value.trim();
-            const outputEl = document.getElementById('output');
+            const resultsContainer = document.getElementById('resultsContainer');
+            const displayEl = document.getElementById('output-display');
+            const exportEl = document.getElementById('outputTextForExport');
             
-            // Clear previous results
-            outputEl.textContent = '';
-            outputEl.className = '';
+            displayEl.innerHTML = '';
+            exportEl.value = '';
+            resultsContainer.style.display = 'none';
 
-            if (!input) {
-                outputEl.textContent = 'Please paste a Base64 string into the text area.';
-                return;
-            }
+            if (!input) { return; }
 
-            // gRPC-Web streaming responses can concatenate multiple Base64 strings.
-            // A valid Base64 string only has padding ('=') at the very end.
-            // We can split the combined string by finding padding characters that are not at the end.
             const delimitedInput = input.replace(/(=+)([A-Za-z0-9+/])/g, '$1\n$2');
-            const base64Frames = delimitedInput.split('\n').filter(s => s.length > 0);
-
-            if (base64Frames.length === 0 && input.length > 0) {
-                 base64Frames.push(input); // Handle single, non-padded frame
+            const base64Chunks = delimitedInput.split('\n').filter(s => s.length > 0);
+            if (base64Chunks.length === 0 && input.length > 0) {
+                base64Chunks.push(input);
             }
             
-            let finalOutput = '';
-            let hasError = false;
-
-            base64Frames.forEach((frame, index) => {
-                if (base64Frames.length > 1) {
-                     finalOutput += `================== FRAME ${index + 1} ==================\n`;
-                }
-
+            let allBytes = [];
+            base64Chunks.forEach((chunk) => {
                 try {
-                    const binaryString = atob(frame);
-                    const bytes = new Uint8Array(binaryString.length);
+                    const binaryString = atob(chunk);
                     for (let i = 0; i < binaryString.length; i++) {
-                        bytes[i] = binaryString.charCodeAt(i);
+                        allBytes.push(binaryString.charCodeAt(i));
                     }
-
-                    if (bytes.length < 5) {
-                        throw new Error(`Invalid gRPC-Web frame. Expected at least 5 bytes for the header, but got ${bytes.length}.`);
-                    }
-
-                    const frameType = bytes[0];
-                    const dataView = new DataView(bytes.buffer);
-                    const length = dataView.getUint32(1, false); // false for big-endian (network byte order)
-
-                    let frameTypeText = `Unknown (0x${frameType.toString(16)})`;
-                    if (frameType === 0x00) frameTypeText = "DATA Frame (0x00)";
-                    if (frameType === 0x80) frameTypeText = "TRAILERS Frame (0x80)";
-
-                    const payloadBytes = bytes.slice(5);
-                    const payloadString = new TextDecoder().decode(payloadBytes);
-                    const payloadHex = Array.from(payloadBytes).map(b => b.toString(16).padStart(2, '0')).join(' ');
-
-                    let lengthWarning = '';
-                    if (payloadBytes.length !== length) {
-                         lengthWarning = `\n[WARNING: Header length (${length}) does not match actual payload length (${payloadBytes.length}).]`;
-                    }
-
-                    finalOutput += `Raw Base64:\n${frame}\n\n`;
-                    finalOutput += `----------- PARSED FRAME -----------\n`;
-                    finalOutput += `Frame Type: ${frameTypeText}\n`;
-                    finalOutput += `Message Length: ${length} bytes\n`;
-                    finalOutput += `\n----------- DECODED PAYLOAD -----------\n`;
-                    finalOutput += `${payloadString}`;
-                    finalOutput += `\n\n----------- PAYLOAD AS HEX -----------\n`;
-                    finalOutput += `${payloadHex}`;
-                    finalOutput += `${lengthWarning}\n\n`;
-
-                } catch (e) {
-                    finalOutput += `Raw Base64:\n${frame}\n\n`;
-                    finalOutput += `DECODING FAILED:\n\n${e.message}\n\n`;
-                    hasError = true;
-                }
+                } catch (e) { /* Silently ignore errors */ }
             });
 
-            if (hasError) {
-                outputEl.className = 'error';
+            const combinedBytes = new Uint8Array(allBytes);
+            const dataView = new DataView(combinedBytes.buffer);
+            let cursor = 0;
+            let frameCount = 1;
+            let htmlOutput = '';
+            let textOutput = '';
+
+            while (cursor < combinedBytes.length) {
+                if (combinedBytes.length - cursor < 5) {
+                    if (combinedBytes.length - cursor > 0) {
+                        const remainingHex = Array.from(combinedBytes.slice(cursor)).map(b => b.toString(16).padStart(2, '0')).join(' ');
+                        const warningText = `[WARNING: ${combinedBytes.length - cursor} trailing bytes found that do not form a complete frame header. HEX: ${remainingHex}]`;
+                        htmlOutput += `<div class="frame error"><pre>${warningText}</pre></div>`;
+                        textOutput += `\n${warningText}\n`;
+                    }
+                    break;
+                }
+
+                const frameType = combinedBytes[cursor];
+                const length = dataView.getUint32(cursor + 1, false);
+                const payloadStart = cursor + 5;
+                const payloadEnd = payloadStart + length;
+
+                if (payloadEnd > combinedBytes.length) {
+                    const errorText = `[ERROR: Frame indicates length of ${length}, but only ${combinedBytes.length - payloadStart} bytes remain in the buffer.]`;
+                    htmlOutput += `<div class="frame error"><pre>${errorText}</pre></div>`;
+                    textOutput += errorText;
+                    break;
+                }
+                
+                const payloadBytes = combinedBytes.slice(payloadStart, payloadEnd);
+                let frameTypeText = `Unknown (0x${frameType.toString(16)})`;
+                if (frameType === 0x00) frameTypeText = "DATA Frame";
+                if ((frameType & 0x80) === 0x80) frameTypeText = "TRAILERS Frame";
+
+                const payloadString = new TextDecoder().decode(payloadBytes).replace(/\0/g, '␀');
+                const payloadHex = Array.from(payloadBytes).map(b => b.toString(16).padStart(2, '0')).join(' ');
+                const payloadStringEscaped = payloadString.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+                htmlOutput += `
+                    <div class="frame">
+                        <div class="frame-header">
+                            <span class="frame-number">FRAME ${frameCount}</span>
+                            <span class="frame-metadata">${frameTypeText} &bull; ${length} bytes</span>
+                        </div>
+                        <div class="frame-body">
+                            <div class="side-by-side-payloads">
+                                <div class="payload-column">
+                                    <div class="payload-title">DECODED PAYLOAD</div>
+                                    <pre class="payload-content">${payloadStringEscaped}</pre>
+                                </div>
+                                <div class="payload-column">
+                                    <div class="payload-title">PAYLOAD AS HEX</div>
+                                    <pre class="payload-hex-content">${payloadHex}</pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                textOutput += `================== FRAME ${frameCount} ==================\n`;
+                textOutput += `Frame Type: ${frameTypeText} (0x${frameType.toString(16)})\n`;
+                textOutput += `Message Length: ${length} bytes\n\n`;
+                textOutput += `----------- DECODED PAYLOAD -----------\n${payloadString}\n\n`;
+                textOutput += `----------- PAYLOAD AS HEX -----------\n${payloadHex}\n\n`;
+
+                cursor = payloadEnd;
+                frameCount++;
             }
 
-            outputEl.textContent = finalOutput;
+            if (htmlOutput) {
+                displayEl.innerHTML = htmlOutput;
+                exportEl.value = textOutput;
+                resultsContainer.style.display = 'block';
+            }
         }
     </script>
 
 </body>
 </html>
-
