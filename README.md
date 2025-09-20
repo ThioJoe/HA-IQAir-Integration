@@ -6,7 +6,7 @@ NOTES:
 - This requires a device that can connect to WiFi and supports the IQAir Cloud API. I have not figured out a way to control it purely locally.
 - I made this using my "GC Multigas XE" device as reference, it might not support all features of other devices. Post an issue thread if you run into issues.
 - This uses undocumented Cloud APIs so might not work perfectly forever if something changes on the back end.
-- I don't know how long the auth tokens last but I haven't had them expire yet. They might stop working if you actually click logout in the dashboard.
+- I don't know how long the auth tokens last but I haven't had them expire yet after at least a few weeks. They might stop working if you actually click logout in the dashboard.
 
 ## Features
 
