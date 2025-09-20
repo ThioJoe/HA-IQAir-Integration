@@ -7,10 +7,9 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.exceptions import HomeAssistantError
 
 from .const import (
     DOMAIN,
@@ -22,15 +21,26 @@ from .const import (
     CONF_SERIAL_NUMBER,
 )
 from .api import IQAirApiClient, async_signin, async_get_cloud_api_auth_token
+from .exceptions import CannotConnect, InvalidAuth, NoDevicesFound
 
 _LOGGER = logging.getLogger(__name__)
+
+
+async def create_state_client(hass: HomeAssistant, login_token: str) -> httpx.AsyncClient:
+    """Create the httpx state client in a thread-safe way."""
+
+    def _create_client() -> httpx.AsyncClient:
+        """Create the httpx client."""
+        return httpx.AsyncClient(headers={"x-login-token": login_token})
+
+    return await hass.async_add_executor_job(_create_client)
 
 
 async def validate_connection(
     hass: HomeAssistant, login_token: str, user_id: str
 ) -> list[dict[str, Any]]:
     """Validate the user input allows us to connect."""
-    state_client = httpx.AsyncClient(headers={"x-login-token": login_token})
+    state_client = await create_state_client(hass, login_token)
     api_client = IQAirApiClient(
         command_client=None,  # Not needed for validation
         state_client=state_client,
@@ -61,6 +71,14 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
     _user_input: dict[str, Any] = {}
     _devices: list[dict[str, Any]] = []
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> "IQAirOptionsFlowHandler":
+        """Get the options flow for this handler."""
+        return IQAirOptionsFlowHandler(config_entry)
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -172,6 +190,29 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             device_name = device["name"]
             serial_number = device["serialNumber"]
 
+            if self.context.get("source") == config_entries.SOURCE_REAUTH:
+                existing_entry = self.hass.config_entries.async_get_entry(
+                    self.context["entry_id"]
+                )
+                self._abort_if_unique_id_configured(
+                    updates={
+                        CONF_LOGIN_TOKEN: self._user_input[CONF_LOGIN_TOKEN],
+                        CONF_USER_ID: self._user_input[CONF_USER_ID],
+                        CONF_AUTH_TOKEN: self._user_input[CONF_AUTH_TOKEN],
+                    }
+                )
+                self.hass.config_entries.async_update_entry(
+                    existing_entry,
+                    data={
+                        **existing_entry.data,
+                        CONF_LOGIN_TOKEN: self._user_input[CONF_LOGIN_TOKEN],
+                        CONF_USER_ID: self._user_input[CONF_USER_ID],
+                        CONF_AUTH_TOKEN: self._user_input[CONF_AUTH_TOKEN],
+                    },
+                )
+                await self.hass.config_entries.async_reload(existing_entry.entry_id)
+                return self.async_abort(reason="reauth_successful")
+
             await self.async_set_unique_id(device_id)
             self._abort_if_unique_id_configured()
 
@@ -189,14 +230,30 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({vol.Required(CONF_DEVICE_ID): vol.In(device_options)}),
         )
 
-
-class CannotConnect(HomeAssistantError):
-    """Error to indicate we cannot connect."""
-
-
-class InvalidAuth(HomeAssistantError):
-    """Error to indicate there is invalid auth."""
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> FlowResult:
+        """Handle re-authentication."""
+        return await self.async_step_user(entry_data)
 
 
-class NoDevicesFound(HomeAssistantError):
-    """Error to indicate no devices were found."""
+class IQAirOptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle an options flow for IQAir Cloud."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Manage the options."""
+        if user_input is not None:
+            self.hass.config_entries.async_start_reauth(self.config_entry.entry_id)
+            return self.async_create_entry(title="", data={})
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema({}),
+            description_placeholders={
+                "name": self.config_entry.title,
+            },
+        )

@@ -29,6 +29,7 @@ from .const import (
     FIELD_AUTO_MODE_PROFILE,
     FIELD_LOCKS,
 )
+from .exceptions import InvalidAuth
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -257,8 +258,8 @@ class IQAirApiClient:
                 _LOGGER.error(
                     "Authentication error fetching devices. Your login token may have expired. Please re-authenticate the integration."
                 )
-            else:
-                _LOGGER.error("Error fetching devices from %s: %s", url, e)
+                raise InvalidAuth from e
+            _LOGGER.error("Error fetching devices from %s: %s", url, e)
             raise
         except (httpx.RequestError, ValueError) as e:
             _LOGGER.error("Error fetching devices from %s: %s", url, e)

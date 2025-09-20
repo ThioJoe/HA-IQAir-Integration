@@ -4,10 +4,12 @@ import copy
 import logging
 
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import DOMAIN, SCAN_INTERVAL
 from .api import IQAirApiClient
+from .exceptions import InvalidAuth
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,10 +30,13 @@ class IQAirDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Update data via library."""
-        data = await self.api.async_get_device_state(self.device_id)
-        if not data:
-            raise UpdateFailed("Device not found or API error")
-        return data
+        try:
+            data = await self.api.async_get_device_state(self.device_id)
+            if not data:
+                raise UpdateFailed("Device not found or API error")
+            return data
+        except InvalidAuth as err:
+            raise ConfigEntryAuthFailed from err
 
     def update_from_command(self, update_data: dict[str, Any]):
         """Update coordinator data from a command response."""

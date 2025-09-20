@@ -3,13 +3,26 @@
     "step": {
       "user": {
         "menu_options": {
-          "credentials": "Authorize via Email and Password",
-          "tokens": "Manually Enter Auth Tokens"
+          "credentials": "Email and Password",
+          "tokens": "Manual Tokens"
         },
         "menu_option_descriptions": {
           "credentials": "The recommended method. The integration will sign in with your email and password to get the necessary tokens.",
-          "tokens": "For advanced users. Manually provide the login token and user ID."
+          "tokens": "For advanced users. Manually provide the login token, user ID, and auth token."
         }
+      },
+      "tokens": {
+        "data": {
+          "auth_token": "Cloud API Auth Token"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Re-authenticate",
+        "description": "To manually re-authenticate your credentials, click below to go through the authentication process again.\n\nYou will need to re-enter your credentials, but your device settings will be preserved."
       }
     }
   }
