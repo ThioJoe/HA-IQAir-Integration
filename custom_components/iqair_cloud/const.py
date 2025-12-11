@@ -13,9 +13,19 @@ CONF_USER_ID: Final = "user_id"
 CONF_AUTH_TOKEN: Final = "auth_token"
 CONF_DEVICE_ID: Final = "device_id"
 CONF_SERIAL_NUMBER: Final = "serial_number"
+CONF_API_ENDPOINT: Final = "api_endpoint"
+CONF_DEVICE_PREFIX: Final = "device_prefix"
+
+# --- API Service Choices ---
+API_SERVICE_UI2: Final = "grpc.ui2.v1.UI2Service"
+API_SERVICE_KLR: Final = "grpc.klr.v1.KLRService"
+
+# --- Defaults ---
+DEFAULT_API_ENDPOINT: Final = API_SERVICE_UI2
+DEFAULT_DEVICE_PREFIX: Final = "UI2"
 
 # --- gRPC API Details ---
-GRPC_API_URL: Final = "https://cloud-api.iqair.io/grpc.ui2.v1.UI2Service"
+GRPC_API_BASE_URL: Final = "https://cloud-api.iqair.io/"
 GRPC_API_HEADERS: Final = {
     "Content-Type": "application/grpc-web-text",
     "X-User-Agent": "grpc-web-javascript/0.1",

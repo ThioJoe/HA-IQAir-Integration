@@ -21,8 +21,15 @@
   "options": {
     "step": {
       "init": {
-        "title": "Re-authenticate",
-        "description": "To manually re-authenticate your credentials, click below to go through the authentication process again.\n\nYou will need to re-enter your credentials, but your device settings will be preserved."
+        "title": "Device Configuration",
+        "description": "Configure the API connection settings for your IQAir device.",
+        "data": {
+          "service_select": "API Service",
+          "custom_service": "Custom Service Endpoint (e.g. grpc.ui2.v1.UI2Service)",
+          "prefix_select": "Device Serial Prefix",
+          "custom_prefix": "Custom Serial Prefix (e.g. UI2)",
+          "update_credentials": "Re-authenticate (Clean Login Tokens)"
+        }
       }
     }
   }

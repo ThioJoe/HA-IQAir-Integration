@@ -19,6 +19,12 @@ from .const import (
     CONF_AUTH_TOKEN,
     CONF_DEVICE_ID,
     CONF_SERIAL_NUMBER,
+    CONF_API_ENDPOINT,
+    CONF_DEVICE_PREFIX,
+    DEFAULT_API_ENDPOINT,
+    DEFAULT_DEVICE_PREFIX,
+    API_SERVICE_UI2,
+    API_SERVICE_KLR,
 )
 from .api import IQAirApiClient, async_signin, async_get_cloud_api_auth_token
 from .exceptions import CannotConnect, InvalidAuth, NoDevicesFound
@@ -46,6 +52,8 @@ async def validate_connection(
         state_client=state_client,
         user_id=user_id,
         serial_number=None,
+        endpoint=DEFAULT_API_ENDPOINT,
+        device_prefix=DEFAULT_DEVICE_PREFIX,
     )
 
     try:
@@ -247,13 +255,81 @@ class IQAirOptionsFlowHandler(config_entries.OptionsFlow):
     ) -> FlowResult:
         """Manage the options."""
         if user_input is not None:
-            self.config_entry.async_start_reauth(self.hass)
-            return self.async_create_entry(title="", data={})
+            # Handle Service Selection
+            if user_input["service_select"] == "custom":
+                api_endpoint = user_input.get("custom_service")
+                if not api_endpoint:
+                     # Fallback to default if custom selected but left empty
+                     api_endpoint = DEFAULT_API_ENDPOINT
+            else:
+                api_endpoint = user_input["service_select"]
+
+            # Handle Prefix Selection
+            if user_input["prefix_select"] == "custom":
+                prefix = user_input.get("custom_prefix")
+                if not prefix:
+                    prefix = DEFAULT_DEVICE_PREFIX
+            else:
+                prefix = user_input["prefix_select"]
+
+            data = {
+                CONF_API_ENDPOINT: api_endpoint,
+                CONF_DEVICE_PREFIX: prefix,
+            }
+
+            if user_input.get("update_credentials"):
+                self.config_entry.async_start_reauth(self.hass)
+
+            return self.async_create_entry(title="", data=data)
+
+        # Retrieve current values from options, falling back to defaults
+        current_endpoint = self.config_entry.options.get(
+            CONF_API_ENDPOINT, DEFAULT_API_ENDPOINT
+        )
+        current_prefix = self.config_entry.options.get(
+            CONF_DEVICE_PREFIX, DEFAULT_DEVICE_PREFIX
+        )
+
+        # Determine dropdown states
+        if current_endpoint == API_SERVICE_UI2:
+            service_select = API_SERVICE_UI2
+        elif current_endpoint == API_SERVICE_KLR:
+            service_select = API_SERVICE_KLR
+        else:
+            service_select = "custom"
+
+        if current_prefix == "UI2":
+            prefix_select = "UI2"
+        elif current_prefix == "KLR":
+            prefix_select = "KLR"
+        else:
+            prefix_select = "custom"
 
         return self.async_show_form(
             step_id="init",
-            data_schema=vol.Schema({}),
-            description_placeholders={
-                "name": self.config_entry.title,
-            },
+            data_schema=vol.Schema(
+                {
+                    vol.Required("service_select", default=service_select): vol.In(
+                        {
+                            API_SERVICE_UI2: "Default (Multigas/UI2)",
+                            API_SERVICE_KLR: "Atem X (KLR)",
+                            "custom": "Custom",
+                        }
+                    ),
+                    vol.Optional(
+                        "custom_service", description={"suggested_value": current_endpoint}
+                    ): str,
+                    vol.Required("prefix_select", default=prefix_select): vol.In(
+                        {
+                            "UI2": "Default (Multigas/UI2)",
+                            "KLR": "Atem X (KLR)",
+                            "custom": "Custom",
+                        }
+                    ),
+                    vol.Optional(
+                        "custom_prefix", description={"suggested_value": current_prefix}
+                    ): str,
+                    vol.Optional("update_credentials", default=False): bool,
+                }
+            ),
         )

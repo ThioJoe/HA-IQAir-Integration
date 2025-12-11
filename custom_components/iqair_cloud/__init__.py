@@ -17,6 +17,10 @@ from .const import (
     CONF_USER_ID,
     CONF_AUTH_TOKEN,
     CONF_SERIAL_NUMBER,
+    CONF_API_ENDPOINT,
+    CONF_DEVICE_PREFIX,
+    DEFAULT_API_ENDPOINT,
+    DEFAULT_DEVICE_PREFIX,
     GRPC_API_HEADERS,
 )
 from .coordinator import IQAirDataUpdateCoordinator
@@ -38,6 +42,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     auth_token = entry.data[CONF_AUTH_TOKEN]
     serial_number = entry.data[CONF_SERIAL_NUMBER]
 
+    # Retrieve options or defaults
+    api_endpoint = entry.options.get(CONF_API_ENDPOINT, DEFAULT_API_ENDPOINT)
+    device_prefix = entry.options.get(CONF_DEVICE_PREFIX, DEFAULT_DEVICE_PREFIX)
+
     def _create_clients() -> tuple[httpx.AsyncClient, httpx.AsyncClient]:
         """Create the httpx clients in a thread-safe way."""
         command_client = httpx.AsyncClient(
@@ -54,6 +62,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         state_client=state_client,
         user_id=user_id,
         serial_number=serial_number,
+        endpoint=api_endpoint,
+        device_prefix=device_prefix,
     )
 
     coordinator = IQAirDataUpdateCoordinator(

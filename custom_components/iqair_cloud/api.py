@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 
 from .const import (
-    GRPC_API_URL,
+    GRPC_API_BASE_URL,
     WEB_API_URL,
     WEB_API_PARAMS,
     WEB_API_SIGNIN_URL,
@@ -91,20 +91,25 @@ class IQAirApiClient:
         state_client: httpx.AsyncClient,
         user_id: str,
         serial_number: str | None,
+        endpoint: str,
+        device_prefix: str,
     ):
         """Initialize the API client."""
         self._user_id = user_id
         self._command_client = command_client
         self._state_client = state_client
         self._serial_number = serial_number
+        self._endpoint = endpoint
+        self._device_prefix = device_prefix
 
     def _build_payload(self, field: int, value: int | None = None) -> str:
         """Build the gRPC payload."""
         if not self._serial_number:
             raise ValueError("Serial number is not set")
 
-        # The payload uses the serial number without the "UI2_" prefix
-        sn_part = self._serial_number.replace("UI2_", "").lower().encode("utf-8")
+        # The payload uses the serial number without the prefix (e.g. "UI2_" or "KLR_")
+        prefix = f"{self._device_prefix}_"
+        sn_part = self._serial_number.replace(prefix, "").lower().encode("utf-8")
         payload_bytes = bytearray([0x0A, len(sn_part)]) + sn_part
 
         if value is not None:
@@ -121,7 +126,7 @@ class IQAirApiClient:
         self, endpoint: str, payload: str, context: str | None = None
     ) -> dict[str, Any] | None:
         """Send a command request to the gRPC API and return the new state."""
-        url = f"{GRPC_API_URL}{endpoint}"
+        url = f"{GRPC_API_BASE_URL}{self._endpoint}{endpoint}"
         context_str = f" ({context})" if context else ""
         try:
             response = await self._command_client.post(url, content=payload)
