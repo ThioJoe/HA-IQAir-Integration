@@ -34,8 +34,8 @@ GRPC_API_HEADERS: Final = {
 
 # --- Web API Details ---
 DASHBOARD_URL: Final = "https://dashboard.iqair.com/"
-WEB_API_SIGNIN_URL: Final = "https://website-api.airvisual.com/v1/auth/signin/by/email"
-WEB_API_URL: Final = "https://website-api.airvisual.com/v1/users/{user_id}/devices"
+WEB_API_SIGNIN_URL: Final = "https://website-api.airvisual.com/v2/auth/signin/by/email"
+WEB_API_URL: Final = "https://website-api.airvisual.com/v2/users/{user_id}/devices"
 WEB_API_PARAMS: Final = {
     "page": "1",
     "perPage": "15",
