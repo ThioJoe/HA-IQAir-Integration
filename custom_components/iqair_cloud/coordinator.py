@@ -34,6 +34,7 @@ class IQAirDataUpdateCoordinator(DataUpdateCoordinator):
             data = await self.api.async_get_device_state(self.device_id)
             if not data:
                 raise UpdateFailed("Device not found or API error")
+            _LOGGER.debug("Full 'remote' data: %s", data.get("remote"))
             return data
         except InvalidAuth as err:
             raise ConfigEntryAuthFailed from err
